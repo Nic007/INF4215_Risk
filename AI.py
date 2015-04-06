@@ -78,19 +78,23 @@ class AI:
             for countryName in ownedCountries:
                 country = ownedCountries[countryName]
                 neighbourToAttack = False
+
                 for neighbour in country.getNeighbours():
                     if neighbour.getOwner() != country.getOwner():
                         neighbourToAttack = True
                 if not neighbourToAttack:
                     continue
+
                 placed = False
                 for placeTroopAction in placeTroopsAction:
                     if placeTroopAction.countryName == countryName:
                         placeTroopAction.nbTroops += 1
                         placed = True
                         break
+
                 if not placed:
                     placeTroopsAction.append(PlaceTroopsAction(countryName, 1))
+
                 nb -= 1
                 if nb == 0:
                     break
