@@ -6,10 +6,12 @@ from RandomAI import RandomAI
 
 __author__ = 'Nicolas'
 
-
 class MLAgent(RandomAI):
 
     def __init__(self):
+        self._nbVictories = 0
+        self._lastGameWon = False
+
         self.Q_ChooseAction = 0
         self.Q_MoveAction = 1
         self.Q_AttackAction = 2
@@ -26,48 +28,59 @@ class MLAgent(RandomAI):
         self.executedActions = []
 
     def countQ(self, actionState, state, action):
-        if state in self.nbQ[actionState] and action in self.nbQ[actionState[state]]:
-            return self.nbQ[actionState][state][action]
-        else:
-            return 0
+        if state in self.nbQ[actionState]:
+            for (sAction, value) in self.nbQ[actionState][state]:
+                if sAction == action:
+                    return value
+        return 0
 
     def alphaValue(self, actionState, state, action):
-        if state in self.alpha[actionState] and action in self.alpha[actionState[state]]:
-            return self.alpha[actionState][state][action]
-        else:
-            return 1.0
+        if state in self.alpha[actionState]:
+            for (sAction, value) in self.alpha[actionState][state]:
+                if sAction == action:
+                    return value
+        return 1.0
 
     def QValue(self, actionState, state, action):
-        if state in self.q[actionState] and action in self.q[actionState[state]]:
-            return self.q[actionState][state][action]
-        else:
-            return 0.0
+        if state in self.q[actionState]:
+            for (sAction, value) in self.q[actionState][state]:
+                if sAction == action:
+                    return value
+        return 0.0
 
     def setQ(self, actionState, state, action, value):
         if state not in self.q[actionState]:
             self.q[actionState][state] = []
 
-        self.q[actionState][state][action] = value
+        index = -1
+        for i, (sAction, value) in enumerate(self.q[actionState][state]):
+            if sAction == action:
+                self.q[actionState][state][i] = (action, value)
+                index = i
+                break
+
+        if index == -1:
+            self.q[actionState][state].append((action, value))
 
         if state not in self.nbQ[actionState]:
             self.nbQ[actionState][state] = []
 
-        if action in self.nbQ[actionState][state]:
-            self.nbQ[actionState][state][action] += 1
+        if index != -1:
+            self.nbQ[actionState][state][index] = (action, self.nbQ[actionState][state][index][1] + 1)
         else:
-            self.nbQ[actionState][state][action] = 1
+            self.nbQ[actionState][state].append((action, 1))
 
         if state not in self.alpha[actionState]:
             self.alpha[actionState][state] = []
 
-        if action in self.alpha[actionState][state]:
-            self.alpha[actionState][state][action] *= 0.99
+        if index != -1:
+            self.alpha[actionState][state][index] = (action, self.alpha[actionState][state][index][1] * 0.99)
         else:
-            self.alpha[actionState][state][action] = 1
+            self.alpha[actionState][state].append((action, 1.0))
 
     def chooseBestAction(self, actionState, state, notEvaluatedAction):
         if state in self.q[actionState]:
-            action = max([(self.QValue(self.Q_ChooseAction, state, action), action)] for action in self.q[actionState][state])[1]
+            action = max(self.q[actionState][state], key=lambda item:item[1])[0]
             if action > 0.0:
                 return action
 
@@ -275,7 +288,13 @@ class MLAgent(RandomAI):
     #
     # default behaviour : do nothing
     def onGameWon(self, allCountries):
-        pass
+        self._learnAtEnd(1.0)
+        self._nbVictories += 1
+        self._lastGameWon = True
+            #self.setQ(actionState ,state, action,
+            #             self.QValue(actionState, state, action) +
+            #             self.alphaValue(actionState, state, action) * (reward + gamma * agent.getMaxQValue(newState) -
+            #             self.QValue(actionState, state, action)))
 
     # Called when your AI lost the game
     #
@@ -285,5 +304,18 @@ class MLAgent(RandomAI):
     #
     # default behaviour : do nothing
     def onGameLost(self, allCountries):
-        pass
+        self._learnAtEnd(-1.0)
+        self._lastGameWon = False
 
+    def GetNbVictories(self):
+        return self._nbVictories
+
+    def HasWon(self):
+        return self._lastGameWon
+
+    def _learnAtEnd(self, reward):
+        for (actionState, state, action) in self.executedActions:
+            self.setQ(actionState ,state, action,
+                         self.QValue(actionState, state, action) +
+                         self.alphaValue(actionState, state, action) * reward)
+        self.executedActions = []
