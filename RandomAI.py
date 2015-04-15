@@ -62,7 +62,7 @@ class RandomAI(AI):
         placeTroopsAction = []
         rest = nbTroopsToPlace
         for countryName in ownedCountries:
-            nbTroopsAtThisCountry = 1
+            nbTroopsAtThisCountry = 0
             placeTroopsAction.append(PlaceTroopsAction(countryName, nbTroopsAtThisCountry))
             rest -= nbTroopsAtThisCountry
 

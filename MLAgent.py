@@ -291,10 +291,6 @@ class MLAgent(RandomAI):
         self._learnAtEnd(1.0)
         self._nbVictories += 1
         self._lastGameWon = True
-            #self.setQ(actionState ,state, action,
-            #             self.QValue(actionState, state, action) +
-            #             self.alphaValue(actionState, state, action) * (reward + gamma * agent.getMaxQValue(newState) -
-            #             self.QValue(actionState, state, action)))
 
     # Called when your AI lost the game
     #
