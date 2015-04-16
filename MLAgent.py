@@ -441,4 +441,4 @@ class MLAgent(RandomAI):
             self.setQ(actionState ,state, action, qValue)
         self.executedActions = []
 
-        #self.saveAll()
+        self.saveAll()

@@ -1,7 +1,5 @@
 from Controller import *
 from MLAgent import *
-from AI import *
-from FMAI import *
 
 import logging
 
@@ -14,25 +12,20 @@ logger = logging.getLogger()
 
 formatter = MyCsvFormatter()
 
-handler = logging.FileHandler("test.csv", "w")
+handler = logging.FileHandler("results.csv", "w")
 handler.setFormatter(formatter)
 logger.addHandler(handler)
 logger.setLevel(logging.DEBUG)
 
-ai1 = MLAgent()
-
 nbWin = 0
 for i in xrange(100):
-    ai2 = FMAI(0.5)
-    controller = Controller("Americas", "Scrubby", "FM", ai1, ai2)
+    ai1 = RandomAI()
+    ai2 = MLAgent()
+    controller = Controller("Americas", "HerpDerp", "Scrubby", ai1, ai2)
     winningPlayerIndex = controller.play()
 
-    if winningPlayerIndex == 1:
+    if winningPlayerIndex == 0:
         nbWin += 1
     logging.debug(str(winningPlayerIndex == 1))
 
-    if i % 20 == 0:
-        ai1.saveAll()
-
-ai1.saveAll()
 print nbWin
