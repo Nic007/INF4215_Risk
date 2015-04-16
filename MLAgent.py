@@ -1,10 +1,14 @@
+import os
 from random import Random
 from AttackAction import AttackAction
+from Country import Country
 from MoveAction import MoveAction
 from PlaceTroopsAction import PlaceTroopsAction
 from RandomAI import RandomAI
 
-__author__ = 'Nicolas'
+import csv
+
+__author__ = 'Nicolas et Simon'
 
 class MLAgent(RandomAI):
 
@@ -26,6 +30,58 @@ class MLAgent(RandomAI):
         self.random.seed()
 
         self.executedActions = []
+
+        self.ChooseActionFileName = "MLAgent_ChooseAction.csv"
+        self.MoveActionFileName = "MLAgent_MoveAction.csv"
+        self.AttackActionFileName = "MLAgent_AttackAction.csv"
+        self.PlaceActionFileName = "MLAgent_PlaceAction.csv"
+        self.AttackWonMoveActionFileName = "MLAgent_AttackWonMoveAction.csv"
+
+        self.load(self.ChooseActionFileName, self.Q_ChooseAction)
+        self.load(self.MoveActionFileName, self.Q_MoveAction)
+        self.load(self.AttackActionFileName, self.Q_AttackAction)
+        self.load(self.PlaceActionFileName, self.Q_PlaceAction)
+        self.load(self.AttackWonMoveActionFileName, self.Q_AttackWonMoveAction)
+
+    def load(self, fileName, actionState):
+
+        self.q[actionState] = {}
+        self.alpha[actionState] = {}
+        self.nbQ[actionState] = {}
+
+        if not os.path.exists(fileName):
+            open(fileName, "a").close()
+
+        with open(fileName, "r") as csvFile:
+            mlReader = csv.reader(csvFile)
+            for row in mlReader:
+                if row[0] not in self.q[actionState]:
+                    self.q[actionState][row[0]] = []
+                    self.alpha[actionState][row[0]] = []
+                    self.nbQ[actionState][row[0]] = []
+
+                self.q[actionState][row[0]].append((row[1], float(row[2])))
+                self.alpha[actionState][row[0]].append((row[1], float(row[3])))
+                self.nbQ[actionState][row[0]].append((row[1], 1))
+
+    def saveAll(self):
+        self.save(self.ChooseActionFileName, self.Q_ChooseAction)
+        self.save(self.MoveActionFileName, self.Q_MoveAction)
+        self.save(self.AttackActionFileName, self.Q_AttackAction)
+        self.save(self.PlaceActionFileName, self.Q_PlaceAction)
+        self.save(self.AttackWonMoveActionFileName, self.Q_AttackWonMoveAction)
+
+    def save(self, fileName, actionState):
+        os.remove(fileName)
+        with open(fileName, "w+") as csvFile:
+            mlWriter = csv.writer(csvFile)
+            for state in self.q[actionState].keys():
+                for i, (sAction, value) in enumerate(self.q[actionState][state]):
+                    (sAction1, alpha) = self.alpha[actionState][state][i]
+                    if sAction != sAction1:
+                        raise ValueError("Wrong order in the files!")
+                    mlWriter.writerow([state, sAction, value, alpha])
+
 
     def countQ(self, actionState, state, action):
         if state in self.nbQ[actionState]:
@@ -53,7 +109,7 @@ class MLAgent(RandomAI):
             self.q[actionState][state] = []
 
         index = -1
-        for i, (sAction, value) in enumerate(self.q[actionState][state]):
+        for i, (sAction, oldValue) in enumerate(self.q[actionState][state]):
             if sAction == action:
                 self.q[actionState][state][i] = (action, value)
                 index = i
@@ -80,9 +136,11 @@ class MLAgent(RandomAI):
 
     def chooseBestAction(self, actionState, state, notEvaluatedAction):
         if state in self.q[actionState]:
-            action = max(self.q[actionState][state], key=lambda item:item[1])[0]
-            if action > 0.0:
-                return action
+            action = max(self.q[actionState][state], key=lambda item:item[1])
+            if action[1] > 0.0:
+                yoloDiceRoll = self.random.randint(1, 6)
+                if action[1] > yoloDiceRoll:
+                    return action[0]
 
         return notEvaluatedAction
 
@@ -94,14 +152,22 @@ class MLAgent(RandomAI):
     #
     # return : one element of the remainingCountries list
     def chooseStartingCountry(self, remainingCountries, ownedCountries, allCountries):
-        state = (tuple([country.getName() for country in remainingCountries]),
-                 tuple([country for country in ownedCountries]))
+        state = "Remaining:"
+        for country in remainingCountries:
+            state += country.getName() + ";"
+
+        state += " Owned:"
+        for country in ownedCountries:
+            state += country + ";"
 
         default = RandomAI.chooseStartingCountry(self, remainingCountries, ownedCountries, allCountries)
-        action = self.chooseBestAction(self.Q_ChooseAction, state, default)
+        action = self.chooseBestAction(self.Q_ChooseAction, state, default.getName())
 
         self.executedActions.append((self.Q_ChooseAction, state, action))
-        return action
+
+        for country in remainingCountries:
+            if country.getName() == action:
+                return country
 
     # Place troops before the games begins. You can place only a portion of the available
     # troops. This method will be called again if you still have troops to be placed
@@ -128,12 +194,38 @@ class MLAgent(RandomAI):
             me = ownedCountries[country].getOwner()
             break
 
-        state = tuple([(country.getName(), country.getNbTroops(), country.getOwner() == me) for country in allCountries])
+        state = ""
+        for country in allCountries:
+            state += "(" + country.getName() + ";" + str(country.getNbTroops()) + ";" + str(country.getOwner() == me) + ");"
 
-        defaultActions = RandomAI.declareAttacks(self, ownedCountries, allCountries)
+        default = RandomAI.declareAttacks(self, ownedCountries, allCountries)
+        serializedDefault = ""
+        for attack in default:
+            serializedDefault += attack._attackingCountry.getName() + "&" + attack._defendingCountry.getName() + "&" + str(attack._nbAttackingDice) + "&" + str(attack._nbDefendingDice) + ";"
 
-        actions = self.chooseBestAction(self.Q_AttackAction, state, defaultActions)
-        self.executedActions.append((self.Q_AttackAction, state, actions))
+
+        serializedActions = self.chooseBestAction(self.Q_AttackAction, state, serializedDefault)
+        self.executedActions.append((self.Q_AttackAction, state, serializedActions))
+
+        if serializedActions == "":
+            return []
+
+        actions = []
+        for attack in serializedActions.split(";"):
+            if attack == "":
+                continue
+
+            [attacking, defending, attDice, defDice] = attack.split("&")
+
+            defCountry = None
+            attCountry = ownedCountries[attacking]
+            for country in allCountries:
+                if country.getName() == defending:
+                    defCountry = country
+                    break
+
+            actions.append(AttackAction(attCountry, defCountry, int(attDice)))
+
 
         return actions
 
@@ -145,12 +237,27 @@ class MLAgent(RandomAI):
     #
     # return : a list of PlaceTroopsAction
     def placeTroops(self, nbTroopsToPlace, ownedCountries, allCountries):
-        state = tuple([country for country in ownedCountries])
+        state = ""
+        for country in ownedCountries:
+            state += country + ";"
 
         placeTroopsAction = RandomAI.placeTroops(self, nbTroopsToPlace, ownedCountries, allCountries)
+        serializedDefaultAction = ""
+        for place in placeTroopsAction:
+            serializedDefaultAction += place.countryName + "&" + str(place.nbTroops) + ";"
 
-        action = self.chooseBestAction(self.Q_PlaceAction, state, placeTroopsAction)
-        self.executedActions.append((self.Q_PlaceAction, state, action))
+        serializedAction = self.chooseBestAction(self.Q_PlaceAction, state, serializedDefaultAction)
+        self.executedActions.append((self.Q_PlaceAction, state, serializedAction))
+
+        if serializedAction == "":
+            return []
+        action = []
+        for place in serializedAction.split(";"):
+            if place == "":
+                continue
+
+            [name, nbTroops] = place.split("&")
+            action.append(PlaceTroopsAction(name, int(nbTroops)))
 
         return action
 
@@ -167,14 +274,32 @@ class MLAgent(RandomAI):
             me = ownedCountries[country].getOwner()
             break
 
-        state = tuple([(country.getName(), country.getNbTroops(), country.getOwner() == me) for country in allCountries])
+        state = ""
+        for country in allCountries:
+            state += "(" + country.getName() + ";" + str(country.getNbTroops()) + ";" + str(country.getOwner() == me) + ");"
 
         default = RandomAI.moveTroops(self, turnAttackResults, ownedCountries, allCountries)
+        if default is not None:
+            defaultSerialized = default.startCountry.getName() + ";" + default.endCountry.getName() + ";" + str(default.nbTroops)
+        else:
+            defaultSerialized = "None"
 
-        action = self.chooseBestAction(self.Q_MoveAction, state, default)
-        self.executedActions.append((self.Q_MoveAction, state, action))
+        serializedAction = self.chooseBestAction(self.Q_MoveAction, state, defaultSerialized)
+        self.executedActions.append((self.Q_MoveAction, state, serializedAction))
 
-        return action
+        if serializedAction == "None":
+            return None
+
+        [startName, endName, nbTroops] = serializedAction.split(";")
+        start = Country("temp")
+        end = Country("temp")
+        for country in allCountries:
+            if country.getName() == startName:
+                start = country
+            if country.getName() == endName:
+                end = country
+
+        return MoveAction(start, end, int(nbTroops))
 
     # Decide the amount of attacking dice while attacking
     #
@@ -222,14 +347,14 @@ class MLAgent(RandomAI):
             if country.getOwner() != startCountry.getOwner():
                 endNbOfEnnemies += country.getNbTroops()
 
-        state = (startCountry.getNbTroops, startNbOfEnnemies, endNbOfEnnemies)
+        state = "start:" + str(startCountry.getNbTroops()) + " startEnnemies:" + str(startNbOfEnnemies) + "endEnnemies:" + str(endNbOfEnnemies)
 
         default = RandomAI.decideNbTransferingTroops(self, attackResult, startCountry, endCountry, ownedCountries, allCountries)
 
         action = self.chooseBestAction(self.Q_AttackWonMoveAction, state, default)
         self.executedActions.append((self.Q_AttackWonMoveAction, state, action))
 
-        return action
+        return int(action)
 
     # Called when your AI wins an attack
     #
@@ -288,7 +413,7 @@ class MLAgent(RandomAI):
     #
     # default behaviour : do nothing
     def onGameWon(self, allCountries):
-        self._learnAtEnd(1.0)
+        self.learnAtEnd(1.0)
         self._nbVictories += 1
         self._lastGameWon = True
 
@@ -300,7 +425,7 @@ class MLAgent(RandomAI):
     #
     # default behaviour : do nothing
     def onGameLost(self, allCountries):
-        self._learnAtEnd(-1.0)
+        self.learnAtEnd(-1.0)
         self._lastGameWon = False
 
     def GetNbVictories(self):
@@ -309,9 +434,10 @@ class MLAgent(RandomAI):
     def HasWon(self):
         return self._lastGameWon
 
-    def _learnAtEnd(self, reward):
+    def learnAtEnd(self, reward):
         for (actionState, state, action) in self.executedActions:
-            self.setQ(actionState ,state, action,
-                         self.QValue(actionState, state, action) +
-                         self.alphaValue(actionState, state, action) * reward)
+            qValue = self.QValue(actionState, state, action) + self.alphaValue(actionState, state, action) * reward
+            self.setQ(actionState ,state, action, qValue)
         self.executedActions = []
+
+        self.saveAll()
