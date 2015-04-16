@@ -138,8 +138,9 @@ class MLAgent(RandomAI):
         if state in self.q[actionState]:
             action = max(self.q[actionState][state], key=lambda item:item[1])
             if action[1] > 0.0:
+                # Just a random factor to help learning new strategies
                 yoloDiceRoll = self.random.randint(1, 6)
-                if action[1] > yoloDiceRoll:
+                if action[1] > yoloDiceRoll / 6.0:
                     return action[0]
 
         return notEvaluatedAction
@@ -349,7 +350,7 @@ class MLAgent(RandomAI):
 
         state = "start:" + str(startCountry.getNbTroops()) + " startEnnemies:" + str(startNbOfEnnemies) + "endEnnemies:" + str(endNbOfEnnemies)
 
-        default = RandomAI.decideNbTransferingTroops(self, attackResult, startCountry, endCountry, ownedCountries, allCountries)
+        default = str(RandomAI.decideNbTransferingTroops(self, attackResult, startCountry, endCountry, ownedCountries, allCountries))
 
         action = self.chooseBestAction(self.Q_AttackWonMoveAction, state, default)
         self.executedActions.append((self.Q_AttackWonMoveAction, state, action))
@@ -440,4 +441,4 @@ class MLAgent(RandomAI):
             self.setQ(actionState ,state, action, qValue)
         self.executedActions = []
 
-        self.saveAll()
+        #self.saveAll()

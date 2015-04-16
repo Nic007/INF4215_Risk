@@ -19,9 +19,10 @@ handler.setFormatter(formatter)
 logger.addHandler(handler)
 logger.setLevel(logging.DEBUG)
 
+ai1 = MLAgent()
+
 nbWin = 0
-for i in xrange(10):
-    ai1 = MLAgent()
+for i in xrange(100):
     ai2 = FMAI(0.5)
     controller = Controller("Americas", "Scrubby", "FM", ai1, ai2)
     winningPlayerIndex = controller.play()
@@ -29,4 +30,9 @@ for i in xrange(10):
     if winningPlayerIndex == 1:
         nbWin += 1
     logging.debug(str(winningPlayerIndex == 1))
+
+    if i % 20 == 0:
+        ai1.saveAll()
+
+ai1.saveAll()
 print nbWin

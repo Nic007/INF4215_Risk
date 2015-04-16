@@ -46,7 +46,7 @@ class RandomAI(AI):
         for countryName in ownedCountries:
             country = ownedCountries[countryName]
             for neighbour in country.getNeighbours():
-                if neighbour.getOwner() != country.getOwner():
+                if neighbour.getOwner() != country.getOwner() and country.getNbTroops() > 1:
                     allPossibilities.append(AttackAction(country, neighbour, 3))
 
         return self.random.sample(allPossibilities, self.random.randint(0, len(allPossibilities)))
@@ -63,6 +63,8 @@ class RandomAI(AI):
         rest = nbTroopsToPlace
         for countryName in ownedCountries:
             nbTroopsAtThisCountry = 0
+            if rest > 0:
+                nbTroopsAtThisCountry = 1
             placeTroopsAction.append(PlaceTroopsAction(countryName, nbTroopsAtThisCountry))
             rest -= nbTroopsAtThisCountry
 
